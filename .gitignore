@@ -1,0 +1,9 @@
+# 本地运行产物：含加密后的校园网密码与日志，禁止提交
+config.json
+*.log
+*.log.old
+monitor.pid
+
+# Windows 杂项
+Thumbs.db
+desktop.ini

@@ -1,0 +1,11 @@
+{
+  "username": "20230000000",
+  "encrypted_password": "<由 Setup.ps1 生成的 DPAPI 密文，不要手改>",
+  "carrier": "unicom",
+  "account_suffix": "@unicom",
+  "wifi_profile": "",
+  "gateway_url": "http://172.18.1.17/",
+  "portal_login_url": "http://172.19.7.17:801/eportal/portal/login",
+  "probe_url": "http://www.msftconnecttest.com/connecttest.txt",
+  "probe_expected": "Microsoft Connect Test"
+}
