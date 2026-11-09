@@ -13,7 +13,7 @@ Write-Host ""
 $username = Read-Host "校园网账号"
 if ([string]::IsNullOrWhiteSpace($username)) { throw "账号不能为空。" }
 
-$securePassword = Read-Host "校园网新密码（输入时不会显示）" -AsSecureString
+$securePassword = Read-Host "校园网密码（输入时不会显示）" -AsSecureString
 if ($securePassword.Length -eq 0) { throw "密码不能为空。" }
 $encryptedPassword = ConvertFrom-SecureString $securePassword
 
