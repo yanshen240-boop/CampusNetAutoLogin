@@ -1,0 +1,40 @@
+name: Build Android module
+
+# 打 tag（android-v1.0.0、android-v1.1.0 …）时自动出模块 zip 并挂到 Release；
+# 也可以在 Actions 页面手动 Run workflow 只产出 artifact。
+
+on:
+  push:
+    tags:
+      - 'android-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Build module zip
+        run: python3 android/build.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: campusnet-magisk-module
+          path: android/dist/*.zip
+
+      - name: Attach zip to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android/dist/*.zip

@@ -4,6 +4,10 @@ config.json
 *.log.old
 monitor.pid
 
+# 安卓模块的构建产物
+android/dist/
+__pycache__/
+
 # Windows 杂项
 Thumbs.db
 desktop.ini

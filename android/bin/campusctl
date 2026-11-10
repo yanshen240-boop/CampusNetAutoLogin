@@ -1,0 +1,188 @@
+#!/system/bin/sh
+# CampusNetAutoLogin · 命令行工具（在 Termux / MT管理器 / adb shell 里以 root 运行）
+#   campusctl status      环境自检
+#   campusctl login       立刻认证一次
+#   campusctl watch       前台跑监控（Ctrl+C 退出，排错用）
+#   campusctl set k v     改配置（如 set username 2023xxx）
+#   campusctl show        打印当前配置（密码打码）
+#   campusctl log [n]     看日志
+#   campusctl start|stop|restart
+#   campusctl on|off      启用 / 暂停自动重连
+
+MODDIR=$(cd "${0%/*}/.." 2>/dev/null && pwd)
+[ -n "$MODDIR" ] || MODDIR=/data/adb/modules/campusnet_autologin
+. "$MODDIR/bin/lib.sh"
+
+mkdir -p "$CN_HOME" 2>/dev/null
+[ -f "$CN_CONFIG" ] || cn_write_default_config
+
+cmd_status() {
+    echo "=== CampusNetAutoLogin 环境自检 ==="
+    _st_defif=$(cn_active_if)
+    _st_if=$(cn_campus_if)
+    _st_ip=$(cn_if_ip "$_st_if")
+    _st_mac=$(cn_if_mac "$_st_if")
+    echo "校园网网卡: ${_st_if:-（无）}（默认路由：${_st_defif:-无}）"
+    echo "IPv4      : ${_st_ip:-（无）}"
+    echo "MAC       : ${_st_mac:-（读不到）}"
+    echo "curl      : ${CN_CURL:-（无，将退化到 wget）}"
+
+    if cn_load_config; then
+        echo "账号      : ${USERNAME}${SUFFIX}"
+        [ -n "$PASSWORD" ] && echo "密码      : 已设置（${#PASSWORD} 位）" || echo "密码      : 未设置"
+        echo "间隔      : ${INTERVAL}s"
+    else
+        echo "账号      : 未配置（campusctl set username xxx / set password xxx）"
+    fi
+
+    if cn_portal_reachable; then
+        echo "门户      : 可达 $PORTAL_LOGIN_URL"
+    else
+        echo "门户      : 不可达（可能不在校园网内）"
+    fi
+
+    if cn_online; then
+        echo "外网      : 正常"
+    else
+        echo "外网      : 不通（需要认证）"
+    fi
+
+    if cn_load_config; then
+        _st_ctx=$(cn_portal_context)
+        echo "认证参数  : $(printf '%s' "$_st_ctx" | tr '|' ' ')"
+    fi
+
+    if [ -f "$CN_PID" ] && kill -0 "$(cat "$CN_PID" 2>/dev/null)" 2>/dev/null; then
+        echo "监控进程  : 运行中（PID $(cat "$CN_PID")）"
+    else
+        echo "监控进程  : 未运行"
+    fi
+    [ -f "$CN_DISABLED" ] && echo "状态      : 已暂停（campusctl on 恢复）"
+    echo "日志      : $CN_LOG"
+}
+
+cmd_login() {
+    if ! cn_load_config; then
+        echo "配置缺失或账号为空，先执行："
+        echo "  campusctl set username 你的学号"
+        echo "  campusctl set password 你的密码"
+        return 1
+    fi
+    echo "账号 ${USERNAME}${SUFFIX}，开始认证…"
+    cn_try_recover
+    _rc=$?
+    case "$_rc" in
+        0) echo "已恢复联网 ✔  IP=${CN_LAST_IP:-?} MAC=${CN_LAST_MAC:-?}" ;;
+        2) echo "门户不可达，当前不在校园网内（或 portal_login_url 配置有误）" ;;
+        *) echo "认证失败 ✘ ${CN_LAST_ERROR:-unknown}  IP=${CN_LAST_IP:-?} MAC=${CN_LAST_MAC:-?}"
+           echo "详细回包见日志：$CN_LOG" ;;
+    esac
+    return "$_rc"
+}
+
+cmd_set() {
+    _set_key=$1
+    shift
+    _set_val=$*
+    case "$_set_key" in
+        username|password|carrier|account_suffix|portal_login_url|gateway_url|probe_url|probe_expected|interval|mac_override) : ;;
+        *)
+            echo "不支持的配置项：$_set_key"
+            echo "可用：username password carrier account_suffix portal_login_url gateway_url probe_url probe_expected interval mac_override"
+            return 1
+            ;;
+    esac
+    if [ "$_set_key" = "password" ] && [ -z "$_set_val" ]; then
+        echo "密码不能为空"
+        return 1
+    fi
+    # 单引号转义：' -> '\'' （配置按 sh 源码读取）
+    _set_esc=$(printf '%s' "$_set_val" | sed "s/'/'\\\\''/g")
+    _set_tmp=$CN_CONFIG.tmp
+    _set_found=0
+    : >"$_set_tmp"
+    while IFS= read -r _set_line || [ -n "$_set_line" ]; do
+        case "$_set_line" in
+            "$_set_key="*)
+                printf "%s='%s'\n" "$_set_key" "$_set_esc" >>"$_set_tmp"
+                _set_found=1
+                ;;
+            *) printf '%s\n' "$_set_line" >>"$_set_tmp" ;;
+        esac
+    done <"$CN_CONFIG"
+    [ "$_set_found" -eq 0 ] && printf "%s='%s'\n" "$_set_key" "$_set_esc" >>"$_set_tmp"
+    mv -f "$_set_tmp" "$CN_CONFIG"
+    chmod 600 "$CN_CONFIG" 2>/dev/null
+    echo "已更新 $_set_key"
+    echo "执行 campusctl restart 让新配置生效。"
+}
+
+cmd_show() {
+    [ -f "$CN_CONFIG" ] || cn_write_default_config
+    echo "=== $CN_CONFIG ==="
+    _show_body=$(grep -v '^#' "$CN_CONFIG")
+    if printf '%s\n' "$_show_body" | grep -q "^password=''$"; then
+        printf '%s\n' "$_show_body"
+    else
+        printf '%s\n' "$_show_body" | sed "s/^password=.*/password=***（已设置，不回显）/"
+    fi
+}
+
+cmd_log() {
+    _n=${1:-30}
+    [ -f "$CN_LOG" ] || { echo "暂无日志：$CN_LOG"; return 0; }
+    tail -n "$_n" "$CN_LOG"
+}
+
+cmd_start() {
+    if [ -f "$CN_PID" ] && kill -0 "$(cat "$CN_PID" 2>/dev/null)" 2>/dev/null; then
+        echo "监控已在运行（PID $(cat "$CN_PID")）"
+        return 0
+    fi
+    if command -v setsid >/dev/null 2>&1; then
+        setsid "$MODDIR/bin/monitor.sh" >/dev/null 2>&1 &
+    else
+        "$MODDIR/bin/monitor.sh" >/dev/null 2>&1 &
+    fi
+    sleep 1
+    if [ -f "$CN_PID" ]; then
+        echo "监控已启动（PID $(cat "$CN_PID")）"
+    else
+        echo "监控启动失败，请看日志：$CN_LOG"
+        return 1
+    fi
+}
+
+cmd_stop() {
+    if [ -f "$CN_PID" ]; then
+        _sp=$(cat "$CN_PID" 2>/dev/null)
+        [ -n "$_sp" ] && kill "$_sp" 2>/dev/null
+        sleep 1
+        [ -n "$_sp" ] && kill -9 "$_sp" 2>/dev/null
+        rm -f "$CN_PID" 2>/dev/null
+        echo "监控已停止"
+    else
+        echo "监控未在运行"
+    fi
+}
+
+case "$1" in
+    status)  cmd_status ;;
+    login)   cmd_login ;;
+    watch)   cmd_stop; echo "前台运行监控，Ctrl+C 退出…"; exec "$MODDIR/bin/monitor.sh" ;;
+    set)     shift; cmd_set "$@" ;;
+    show)    cmd_show ;;
+    log)     shift; cmd_log "$@" ;;
+    start)   cmd_start ;;
+    stop)    cmd_stop ;;
+    restart) cmd_stop; sleep 1; cmd_start ;;
+    on)      rm -f "$CN_DISABLED"; echo "已启用"; cmd_start ;;
+    off)     touch "$CN_DISABLED"; echo "已暂停（进程保留，不再自动认证）" ;;
+    ""|help|-h|--help)
+        sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+        ;;
+    *)
+        echo "未知命令：$1（campusctl help 查看用法）"
+        exit 1
+        ;;
+esac

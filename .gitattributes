@@ -4,3 +4,12 @@
 *.cmd text eol=crlf
 *.md  text eol=lf
 LICENSE text eol=lf
+
+# 安卓模块：shell 脚本必须是 LF，带 CRLF 的手机上跑不起来
+*.sh text eol=lf
+android/** text eol=lf
+*.py text eol=lf
+
+# 但 android/tools 下是 Windows 端工具，仍要 CRLF
+android/tools/*.cmd text eol=crlf
+android/tools/*.ps1 text eol=crlf

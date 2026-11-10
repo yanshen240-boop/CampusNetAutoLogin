@@ -1,0 +1,6 @@
+#!/system/bin/sh
+# 让 root shell 里可以直接敲 campusctl（由模块 system/bin 挂载提供）
+M=/data/adb/modules/campusnet_autologin
+[ -x "$M/bin/campusctl" ] || M=/data/adb/modules_update/campusnet_autologin
+[ -x "$M/bin/campusctl" ] || M=/data/local/tmp/cn
+exec "$M/bin/campusctl" "$@"

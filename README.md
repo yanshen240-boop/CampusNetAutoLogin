@@ -20,6 +20,8 @@ http://172.19.7.17:801/eportal/portal/login
 | 检测间隔 | 默认 30 秒，最低限制 15 秒 |
 | 版本 | v1.1.0 |
 
+> 📱 **安卓端也有：** [android/](android/) 是 Magisk / KernelSU 模块版本，同一套 ePortal 协议，开机自启、后台常驻，适合手机连校园网 Wi-Fi 时自动重认证。见 [android/README.md](android/README.md)。
+
 ---
 
 ## 一、它解决什么问题
@@ -151,10 +153,24 @@ CampusNetAutoLogin/
 ├── Uninstall.cmd           # 卸载入口（双击）
 ├── Uninstall.ps1           # 停止监控、移除自启
 ├── config.example.json     # 配置样例（不含任何真实凭据）
+├── android/                # 安卓端：Magisk / KernelSU 模块
+│   ├── module.prop         # 模块信息与版本号
+│   ├── service.sh          # 开机拉起后台监控
+│   ├── bin/                # lib.sh / monitor.sh / campusctl
+│   ├── system/bin/         # campusctl 包装器
+│   ├── tools/              # PC 端配置助手（adb 写配置 + 试登录）
+│   └── build.py            # 打包成模块 zip
 └── README.md
 ```
 
 ## 更新记录
+
+**Android v1.0.0**
+
+- 安卓端首发（`android/`）：按 ePortal 协议用 sh 重写，Magisk / KernelSU 模块化，开机自启 + 后台常驻。
+- 门户可达性门控（不在校园网不发认证请求）、认证参数多路解析（WISP XML / 302 Location）、连续失败退避、日志轮转、单实例保护。
+- 网卡按「到门户的路由」选择，避开 Wi-Fi 无互联网时默认路由落在移动数据导致取错 MAC 的坑。
+- `campusctl` 命令行 + Magisk「操作」按钮一键重认证；`tools/` 提供 PC 端一键配置。
 
 **v1.1.0**
 
