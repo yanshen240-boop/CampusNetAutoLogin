@@ -38,5 +38,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: android/dist/*.zip
-          generate_release_notes: true
+          body_path: android/RELEASE_NOTES.md
           fail_on_unmatched_files: true

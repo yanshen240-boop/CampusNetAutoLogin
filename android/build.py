@@ -18,7 +18,7 @@ DIST = os.path.join(ROOT, "dist")
 
 # 不进模块 zip 的东西：构建产物、文档、PC 端辅助工具
 EXCLUDE_DIRS = {"dist", "__pycache__", "tools"}
-EXCLUDE_FILES = {"build.py", "README.md", ".gitignore"}
+EXCLUDE_FILES = {"build.py", "README.md", "RELEASE_NOTES.md", ".gitignore"}
 
 # 需要有执行位的文件（没扩展名的脚本靠这里点名）
 EXEC_FILES = {"campusctl", "lib.sh", "monitor.sh"}
