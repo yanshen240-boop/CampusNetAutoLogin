@@ -168,6 +168,9 @@ python3 android/build.py
 git tag android-v1.0.0 && git push origin android-v1.0.0
 ```
 
+发版顺序（别漏了版本号）：改 `module.prop` 的 `version` 与 `versionCode` → 提交 → 打 tag 推送。
+Release 正文取自 `android/RELEASE_NOTES.md`，改这个文件就能改下次 Release 的说明。
+
 目录 `tools/` 里的 PC 端助手只负责通过 adb 把账号写进手机配置并试一次登录，不进模块 zip。
 
 ## 十、更新记录
